@@ -1,0 +1,19 @@
+The small Python program which using NLP Stanza Lib to process the NLP of english sentences
+like:
+    - Extract tags from sentence.
+    - Identify tense of sentence.
+    - Extract the main verb in a sentence.
+    - Get type of sentence: statement, question, tag question,...
+
+Note: The program is running on Python3.6
+
+1. Create virtual python environment using virtualenv:
+    virtualenv venv
+2. Activate virtual environment:
+    source venv/bin/activate
+3. Install StanforNLP stanza and necessary packages:
+    pip3 install -r requirements.txt
+2. Run the script:
+    python3 process.py --input "Current_sentences_grammar_tags.xlsx"
+
+=> The output.xlsx result excel file will be created after the script finished.
