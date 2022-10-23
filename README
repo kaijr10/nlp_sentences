@@ -14,6 +14,6 @@ Note: The program is running on Python3.6
 3. Install StanforNLP stanza and necessary packages:
     pip3 install -r requirements.txt
 2. Run the script:
-    python3 process.py --input "Current_sentences_grammar_tags.xlsx"
+    python3 process_nlp.py --input "Current_sentences_grammar_tags.xlsx"
 
 => The output.xlsx result excel file will be created after the script finished.

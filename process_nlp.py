@@ -3,6 +3,7 @@ import argparse
 import os
 import sys
 import pandas as pd
+import nodebox_linguistics_extended as nle
 
 """
 Get type of sentence
@@ -601,15 +602,80 @@ def update_for_negative_case(tense, tag):
 
 
 """
-Get main verb of sentence
+Get main verb of sentence and is_combined_main_verb or not.
+eg (main_verb, True)
 """
 def get_main_verb(tense, word_xpos):
     if tense:
         tag_main_verb = tense.get_main_verb()
         if tag_main_verb:
             print("Getting main verb tag {0} in tags {1} with words {2}".format(tag_main_verb, word_xpos['xpos'], word_xpos['words']))
-            return word_xpos['words'][word_xpos['xpos'].index(tag_main_verb)] if tag_main_verb in word_xpos['xpos'] else None
-    return None
+            #return word_xpos['words'][word_xpos['xpos'].index(tag_main_verb)] if tag_main_verb in word_xpos['xpos'] else None
+            return check_and_get_main_verb(tag_main_verb, word_xpos)
+    return None, False
+
+"""
+Check and get the main verb. Check the main verb is in ['s, 'd, 've, 'd, 'm, 're, 'll],
+then combine with the previous word to make the meaningful main verb. eg We'd = We + ' + d
+@param tag_main_verb: the tag (xpos) of main verb in a sentence
+@param word_xpos: the dictionary of words and xposes of words in a sentence
+@return the main verb of sentence and is_combined_main_verb if exist, vice versa (None, False)
+"""
+def check_and_get_main_verb(tag_main_verb, word_xpos):
+    combined = False
+    if tag_main_verb in word_xpos['xpos']:
+        # get index of main verb
+        index_main_verb = word_xpos['xpos'].index(tag_main_verb)
+        # check if main verb is in ['s, 'd, 've, 'd, 'm, 're, 'll]
+        main_verb = word_xpos['words'][index_main_verb]
+        if main_verb and main_verb in ["'s", "'d", "'ve", "'d", "'m", "'re", "'ll"]:
+            # combine the previous word
+            main_verb = word_xpos['words'][index_main_verb-1] + main_verb
+            combined = True
+        return (main_verb, combined)
+    return (None, combined)
+
+"""
+Wrap the main verb in sentence by parenthesess
+"""
+def wrap_main_word(sentence, main_verb):
+    if main_verb:
+        return sentence.replace(main_verb, "{" + main_verb + "}", 1)
+    return sentence
+
+"""
+Get the verb conjugators in 3 alternatives: infinitive, 3rd singular present and present participle
+""" 
+def main_verb_conjugate(main_verb, is_combined_main_verb):
+    if is_combined_main_verb == False and main_verb is not None:
+        main_verb = main_verb.lower()
+        log_debug("Getting conjugators of main_verb: " + main_verb)
+        try:
+            return (
+                nle.verb.conjugate(word=main_verb, tense='infinitive'),
+                nle.verb.conjugate(word=main_verb, tense='3rd singular present'),
+                nle.verb.conjugate(word=main_verb, tense='present participle')
+            )
+        except Exception:
+            log_debug("The main verb {0} vocalbulary does not exist".format(main_verb))
+            # debug to log main verb does not exists, then update the main verb vocalbulary.
+            # comment this line if all main verb is updated
+            log_main_verb(main_verb)
+    return ('','','')
+
+"""
+Log the missing main verb in nodebox_linguistics_extended main verb volcabulary.
+Using this file to update nodebox_linguistics_extended later 
+"""
+def log_main_verb(main_verb):
+    log_file = "main_verb.log"
+    if os.path.isfile(log_file):
+        try:
+            os.remove(log_file)
+        except:
+            pass
+        with open(log_file, 'a+') as f_a:
+            f_a.write(main_verb + " \n")
 
 """
 Check a list is sublist of other list
@@ -714,13 +780,13 @@ def main():
         # get type of sentence
         df.loc[i, "sentence_type"] = get_type_of_sentence(sentence)
         
-        sentence = remove_special_character_end_of_sentence(sentence)
-        doc = nlp(sentence)
+        sentence_processed = remove_special_character_end_of_sentence(sentence)
+        doc = nlp(sentence_processed)
         sent = doc.sentences[0]
 
         # get grammar tags of sentence
         word_xpos = get_grammar_tags_of_sentence(sent)
-        log_debug("Process sentence: {0} - pos_tags: {1}".format(sentence, word_xpos["xpos"]))
+        log_debug("Process sentence: {0} - pos_tags: {1}".format(sentence_processed, word_xpos["xpos"]))
         df.loc[i, "grammar_tags"] = " ".join(word_xpos["xpos"])
 
         # get tense and main verb of sentence
@@ -728,7 +794,15 @@ def main():
         ## get tense of sentence
         df.loc[i, "tense"] = tense.get_name() if tense else None
         ## get main verb of sentence
-        df.loc[i, "main_verb"] = get_main_verb(tense, word_xpos)
+        (main_verb, is_combined_main_verb) = get_main_verb(tense, word_xpos)
+        df.loc[i, "main_verb"] = main_verb
+        ## format sentence by wrapping main verb by parenthesess
+        df.loc[i, "formatted"] = wrap_main_word(sentence, main_verb)
+        ## main verb conjugation
+        (alter_1, alter_2, alter_3) = main_verb_conjugate(main_verb, is_combined_main_verb)
+        df.loc[i, "alter_1"] = alter_1
+        df.loc[i, "alter_2"] = alter_2
+        df.loc[i, "alter_3"] = alter_3
         log_debug("Processed sentence {0}".format(sentence))
     
     # save excel file to output
