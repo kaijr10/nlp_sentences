@@ -792,6 +792,7 @@ def main():
         if isinstance(sentence, int) or pd.isna(sentence):
             log_debug("No supported format!. Sentence: {0} - Skipping".format(sentence))
             continue
+        
         df.loc[i, "sentences"] = sentence.replace("’", "'")
         # get type of sentence
         df.loc[i, "sentence_type"] = get_type_of_sentence(sentence)
@@ -813,7 +814,7 @@ def main():
         main_verb = get_main_verb(tense, word_xpos)
         df.loc[i, "main_verb"] = main_verb
         ## format sentence by wrapping main verb by parenthesess
-        df.loc[i, "formatted"] = wrap_main_word(sentence, main_verb)
+        df.loc[i, "formatted"] = wrap_main_word(sentence.replace("’", "'"), main_verb)
         ## main verb conjugation
         (alter_1, alter_2, alter_3) = main_verb_conjugate(main_verb)
         df.loc[i, "alter_1"] = alter_1
