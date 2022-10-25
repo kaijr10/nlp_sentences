@@ -602,8 +602,7 @@ def update_for_negative_case(tense, tag):
 
 
 """
-Get main verb of sentence and is_combined_main_verb or not.
-eg (main_verb, True)
+Get main verb of sentence
 """
 def get_main_verb(tense, word_xpos):
     if tense:
@@ -612,14 +611,14 @@ def get_main_verb(tense, word_xpos):
             print("Getting main verb tag {0} in tags {1} with words {2}".format(tag_main_verb, word_xpos['xpos'], word_xpos['words']))
             #return word_xpos['words'][word_xpos['xpos'].index(tag_main_verb)] if tag_main_verb in word_xpos['xpos'] else None
             return check_and_get_main_verb(tag_main_verb, word_xpos)
-    return None, False
+    return None
 
 """
 Check and get the main verb. Check the main verb is in ['s, 'd, 've, 'd, 'm, 're, 'll],
 then combine with the previous word to make the meaningful main verb. eg We'd = We + ' + d
 @param tag_main_verb: the tag (xpos) of main verb in a sentence
 @param word_xpos: the dictionary of words and xposes of words in a sentence
-@return the main verb of sentence and is_combined_main_verb if exist, vice versa (None, False)
+@return the main verb of sentence a if exist, vice versa None
 """
 def check_and_get_main_verb(tag_main_verb, word_xpos):
     combined = False
@@ -628,12 +627,15 @@ def check_and_get_main_verb(tag_main_verb, word_xpos):
         index_main_verb = word_xpos['xpos'].index(tag_main_verb)
         # check if main verb is in ['s, 'd, 've, 'd, 'm, 're, 'll]
         main_verb = word_xpos['words'][index_main_verb]
-        if main_verb and main_verb in ["'s", "'d", "'ve", "'d", "'m", "'re", "'ll"]:
-            # combine the previous word
-            main_verb = word_xpos['words'][index_main_verb-1] + main_verb
-            combined = True
-        return (main_verb, combined)
-    return (None, combined)
+        if main_verb:
+            if main_verb in ["'s", "'d", "'ve", "'d", "'m", "'re", "'ll"]:
+                # combine the previous word
+                main_verb = word_xpos['words'][index_main_verb-1] + main_verb
+            elif index_main_verb < len(word_xpos['words'])-1 and word_xpos['words'][index_main_verb+1] == "n't":
+                # check after main verb is "n't"
+                main_verb = main_verb + word_xpos['words'][index_main_verb+1]
+            return main_verb
+    return None
 
 """
 Wrap the main verb in sentence by parenthesess
@@ -646,16 +648,27 @@ def wrap_main_word(sentence, main_verb):
 """
 Get the verb conjugators in 3 alternatives: infinitive, 3rd singular present and present participle
 """ 
-def main_verb_conjugate(main_verb, is_combined_main_verb):
-    if is_combined_main_verb == False and main_verb is not None:
+def main_verb_conjugate(main_verb):
+    if main_verb is not None:
         main_verb = main_verb.lower()
         log_debug("Getting conjugators of main_verb: " + main_verb)
         try:
-            return (
-                nle.verb.conjugate(word=main_verb, tense='infinitive'),
-                nle.verb.conjugate(word=main_verb, tense='3rd singular present'),
-                nle.verb.conjugate(word=main_verb, tense='present participle')
-            )
+            tenses = nle.verb.tenses()
+            num_of_alter = 3
+            result = []
+            for tense in tenses:
+                if len(result) == num_of_alter:
+                    break
+                alter = nle.verb.conjugate(word=main_verb, tense=tense)
+                log_debug("alter word: {0}, main verb: {1}".format(alter, main_verb))
+                if alter and alter != 'be' and alter != main_verb and alter not in result:
+                    result.append(alter)
+
+            if len(result) < num_of_alter:
+                len_result = len(result)
+                for _ in range(0, 3-len_result):
+                    result.append('')
+            return result
         except Exception:
             log_debug("The main verb {0} vocalbulary does not exist".format(main_verb))
             # debug to log main verb does not exists, then update the main verb vocalbulary.
@@ -794,20 +807,21 @@ def main():
         ## get tense of sentence
         df.loc[i, "tense"] = tense.get_name() if tense else None
         ## get main verb of sentence
-        (main_verb, is_combined_main_verb) = get_main_verb(tense, word_xpos)
+        main_verb = get_main_verb(tense, word_xpos)
         df.loc[i, "main_verb"] = main_verb
         ## format sentence by wrapping main verb by parenthesess
         df.loc[i, "formatted"] = wrap_main_word(sentence, main_verb)
         ## main verb conjugation
-        (alter_1, alter_2, alter_3) = main_verb_conjugate(main_verb, is_combined_main_verb)
+        (alter_1, alter_2, alter_3) = main_verb_conjugate(main_verb)
         df.loc[i, "alter_1"] = alter_1
         df.loc[i, "alter_2"] = alter_2
         df.loc[i, "alter_3"] = alter_3
         log_debug("Processed sentence {0}".format(sentence))
     
     # save excel file to output
-    log_debug("Save the result to output file!")
-    df.to_excel(excel_file.split('.')[0] + "output.xlsx", index=False)
+    output_file = excel_file.split('.')[0] + "-output.xlsx"
+    log_debug("Save the result to output file {0}!".format(output_file))
+    df.to_excel(output_file, index=False)
 
 if __name__ == '__main__':
     main()
