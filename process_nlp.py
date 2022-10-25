@@ -792,6 +792,7 @@ def main():
         if isinstance(sentence, int) or pd.isna(sentence):
             log_debug("No supported format!. Sentence: {0} - Skipping".format(sentence))
             continue
+        df.loc[i, "sentences"] = sentence.replace("’", "'")
         # get type of sentence
         df.loc[i, "sentence_type"] = get_type_of_sentence(sentence)
         
