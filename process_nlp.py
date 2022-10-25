@@ -628,6 +628,8 @@ def check_and_get_main_verb(tag_main_verb, word_xpos):
         # check if main verb is in ['s, 'd, 've, 'd, 'm, 're, 'll]
         main_verb = word_xpos['words'][index_main_verb]
         if main_verb:
+            if "’" in main_verb:
+                main_verb = main_verb.replace("’", "'")
             if main_verb in ["'s", "'d", "'ve", "'d", "'m", "'re", "'ll"]:
                 # combine the previous word
                 main_verb = word_xpos['words'][index_main_verb-1] + main_verb
